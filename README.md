@@ -1,3 +1,16 @@
+# Skypet Cloned from electron-react-boilerplate
+
+## To Edit GUI
+Edit the files in `/app`
+
+## To Edit server (light client would be called from the server)
+Edit `server.js`
+
+## To run dev cli
+`npm run dev`
+
+# Below is the original readme!! 
+
 # electron-react-boilerplate
 
 [![Build Status][travis-image]][travis-url]
