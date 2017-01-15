@@ -1,8 +1,30 @@
-import { app, BrowserWindow, Menu, shell } from 'electron';
-
+import { app, BrowserWindow, Menu, shell, ipcMain} from 'electron';
+import {getEthereumStart, addAttribute} from './eth';
+/*const Web3 = require('web3');
+const os=require('os');
+const web3=new Web3();*/
 let menu;
 let template;
 let mainWindow = null;
+/*const gethPath=process.env.gethPath?process.env.gethPath:os.homedir()+"/.ethereum/";
+const gethLocations={
+  production:gethPath,
+  testing:gethPath+'testnet/'
+};
+const contractAddress='0x72c1bba9cabab4040c285159c8ea98fd36372858';
+const passwordFileName='pswd.txt';
+const testing=true;*/
+
+
+
+ipcMain.on('addAttribute', (event, arg) => {
+  console.log(arg)  // prints "ping"
+  //addAttribute(arg);
+  //event.sender.send('asynchronous-reply', 'pong')
+})
+ipcMain.on('startEthereum', (event, arg)=>{
+  getEthereumStart(event);
+})
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support'); // eslint-disable-line
@@ -40,7 +62,8 @@ const installExtensions = async () => {
 
 app.on('ready', async () => {
   await installExtensions();
-
+  
+  //var subpy = require('child_process').spawn('geth', ['--rpc --testnet --datadir=$HOME/.ethereum --light --ipcpath=$HOME/.ethereum/testnet/geth.ipc --verbosity=3']);
   mainWindow = new BrowserWindow({
     show: false,
     width: 1024,
@@ -270,5 +293,6 @@ app.on('ready', async () => {
     }];
     menu = Menu.buildFromTemplate(template);
     mainWindow.setMenu(menu);
+    
   }
 });

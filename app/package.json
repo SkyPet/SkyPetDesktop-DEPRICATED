@@ -11,5 +11,8 @@
   },
   "license": "MIT",
   "dependencies": {
+    "crypto-js": "^3.1.9-1",
+    "react-bootstrap": "^0.30.7",
+    "web3": "^0.18.2"
   }
 }
