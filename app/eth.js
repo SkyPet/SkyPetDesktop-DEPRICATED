@@ -13,6 +13,7 @@ const gethLocations={
   production:gethPath,
   testing:gethPath+'testnet/'
 };
+const gethCommand=process.platform === 'darwin'?'./geth-mac':process.platform==='win32'?'geth-windows':'./geth';
 //var contract;
 var contractAddress='0x72c1bba9cabab4040c285159c8ea98fd36372858'; //please chnage this back to const
 const passwordFileName='pswd.txt';
@@ -59,7 +60,7 @@ const getAttributes=(contract, hashId, unHashedId, event)=>{
     });
 }
 
-export const addAttribute=(contract, message, hashId, unHashedId, event)=>{
+export const addAttribute=(contract, message, hashId, unHashedId, web3, event)=>{
     contract.costToAdd((err1, cost)=>{
         web3.eth.getBalance(web3.eth.defaultAccount, (err2, balance)=>{
             if(cost.greaterThan(balance)){
@@ -80,14 +81,14 @@ export const addAttribute=(contract, message, hashId, unHashedId, event)=>{
                     console.log(error);
                     return;
                 }
-                console.log(result);
+                //console.log(result);
                 getAttributes(contract, hashId, unHashedId, event);
                 web3.eth.getBalance(web3.eth.defaultAccount, (err, balance)=>{ 
                     event.sender.send('moneyInAccount', web3.fromWei(balance).toString());
                 });
             });
         })
-    })
+    });
 }
 function runWeb3(event, web3, cb){
     var abi =[{"constant":false,"inputs":[],"name":"kill","outputs":[],"payable":false,"type":"function"},{"constant":false,"inputs":[],"name":"getRevenue","outputs":[],"payable":true,"type":"function"},{"constant":true,"inputs":[{"name":"_petid","type":"bytes32"},{"name":"index","type":"uint256"}],"name":"getAttribute","outputs":[{"name":"","type":"uint256"},{"name":"","type":"string"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"owner","outputs":[{"name":"","type":"address"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"costToAdd","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function"},{"constant":true,"inputs":[{"name":"_petid","type":"bytes32"}],"name":"getNumberOfAttributes","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function"},{"constant":false,"inputs":[{"name":"_petid","type":"bytes32"},{"name":"_attribute","type":"string"}],"name":"addAttribute","outputs":[],"payable":true,"type":"function"},{"inputs":[],"type":"constructor"},{"payable":false,"type":"fallback"},{"anonymous":false,"inputs":[{"indexed":false,"name":"_petid","type":"bytes32"},{"indexed":false,"name":"_attribute","type":"string"}],"name":"attributeAdded","type":"event"}];
@@ -111,7 +112,7 @@ const getGethPath=(fileName, isTest)=>{
   return (isTest?gethLocations.testing:gethLocations.production)+fileName;
 }
 const runGeth=(password, event, ipcPath, web3, cb)=>{
-  exec('./geth --exec "personal.unlockAccount(eth.accounts[0], \''+password+'\', 0)" attach ipc:'+ipcPath, (err, stdout, stderr)=>{
+  exec(gethCommand+' --exec "personal.unlockAccount(eth.accounts[0], \''+password+'\', 0)" attach ipc:'+ipcPath, (err, stdout, stderr)=>{
       stdout=stdout.trim();
       if(err||(stdout!=="true")){
           return console.log(err||stdout);
@@ -124,14 +125,14 @@ const runGeth=(password, event, ipcPath, web3, cb)=>{
 }
 const checkPswd=(datadir, event,ipcPath, web3, cb)=>{
   const pswd=path.join(__dirname, passwordFileName);
-  exec('./geth '+datadir+'  account list', (err, stdout, stderr)=>{
+  exec(gethCommand+' '+datadir+'  account list', (err, stdout, stderr)=>{
         if(err||!stdout){
             var value=uuid.v1().replace(/-/g, "");
             fs.writeFile(pswd, value, (err)=>{
                 if(err) {
                     return console.log(err);
                 }
-                exec('./geth '+datadir+' --password '+passwordFileName+' account new', (err, stdout, stderr)=>{
+                exec(gethCommand+' '+datadir+' --password '+passwordFileName+' account new', (err, stdout, stderr)=>{
                     if(err){
                         return console.log(err);
                     }
@@ -165,21 +166,28 @@ const getSync=(web3,event, cb)=>{
             console.log("syncing started");
         }
         else if(sync){
-            event.sender.send('sync', 'syncing');
+            var progress=100.0*(sync.currentBlock-sync.startingBlock)/(sync.highestBlock-sync.startingBlock);
+            event.sender.send('sync', {currentProgress:progress, isSyncing:true});
             console.log(sync.startingBlock+", "+sync.currentBlock+", "+sync.highestBlock);
         }
         else{
-            event.sender.send('sync', 'complete');
+            event.sender.send('sync', {currentProgress:100, isSyncing:false});
             console.log("sync complete");
             cb();
         }
-    })
+    });
+}
+export const getIds=(web3)=>{
+    return {
+        unHashedId:"MyId4",
+        hashId:web3.sha3("MyId4")
+    }
 }
 export const getEthereumStart=(event, callback)=>{
     const ipcPath=getGethPath('geth.ipc', testing);
     const ethPath=getGethPath("", false);
     const datadir='--datadir '+getGethPath('geth/lightchaindata', testing);
-    const geth = spawn("./geth", ['--rpc', '--testnet', '--datadir='+getGethPath("", false), '--light', '--ipcpath='+ipcPath]);
+    const geth = spawn(gethCommand, ['--rpc', '--testnet', '--datadir='+getGethPath("", false), '--light', '--ipcpath='+ipcPath]);
 
     var isFirst=true;
     geth.stdout.on('data', (data) => {
@@ -191,17 +199,17 @@ export const getEthereumStart=(event, callback)=>{
             var web3=new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
             getSync(web3, event, ()=>{
                 if(testing){
-                    var unHashedId="MyId4";
+                    const Ids=getIds(web3);
                     checkPswd(datadir, event, ipcPath, web3, (contract)=>{
-                        const hashId=web3.sha3(unHashedId);
-                        event.sender.send('petId', hashId);
-                        getAttributes(contract, hashId, unHashedId, event);
-                        callback(contract);
+                        //const hashId=web3.sha3(unHashedId);
+                        event.sender.send('petId', Ids.hashId);
+                        getAttributes(contract, Ids.hashId, Ids.unHashedId, event);
+                        callback(contract, Ids.hashId, Ids.unHashedId, web3);
                     });
                 }
                 else{
                     checkPswd(datadir, event, ipcPath, web3, (contract)=>{
-                        callback(contract);
+                        callback(contract, Ids.hashId, Ids.unHashedId, web3);
                     });
                 }
             })

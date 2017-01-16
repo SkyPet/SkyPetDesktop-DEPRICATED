@@ -1,30 +1,15 @@
 import { app, BrowserWindow, Menu, shell, ipcMain} from 'electron';
-import {getEthereumStart, addAttribute} from './eth';
-/*const Web3 = require('web3');
-const os=require('os');
-const web3=new Web3();*/
+import {getEthereumStart, addAttribute, getIds} from './eth';
+
 let menu;
 let template;
 let mainWindow = null;
-/*const gethPath=process.env.gethPath?process.env.gethPath:os.homedir()+"/.ethereum/";
-const gethLocations={
-  production:gethPath,
-  testing:gethPath+'testnet/'
-};
-const contractAddress='0x72c1bba9cabab4040c285159c8ea98fd36372858';
-const passwordFileName='pswd.txt';
-const testing=true;*/
-
-
-
 
 ipcMain.on('startEthereum', (event, arg)=>{
-  getEthereumStart(event, (contract)=>{
-    console.log("got to line 23 in main.js")
+  getEthereumStart(event, (contract, hashId, unHashedId, web3)=>{
     ipcMain.on('addAttribute', (event, arg) => {
-      console.log(arg)  // prints "ping"
-      //addAttribute(arg);
-      //event.sender.send('asynchronous-reply', 'pong')
+      console.log(arg);
+      addAttribute(contract, JSON.stringify(arg), hashId, unHashedId, web3, event);
     })
   });
 })

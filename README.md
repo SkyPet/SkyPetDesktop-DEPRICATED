@@ -4,7 +4,7 @@
 Edit the files in `/app`
 
 ## To Edit server (light client would be called from the server)
-Edit `server.js`
+Edit `/app/main.development.js`
 
 ## To run dev cli
 `npm run dev`

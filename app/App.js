@@ -1,7 +1,7 @@
 import React,  {  Component } from 'react';
 const CryptoJS = require("crypto-js");
 const {ipcRenderer} = require('electron');
-import { Button, FormControl, Grid, FormGroup, Checkbox, ControlLabel, Jumbotron, Row, Col, Modal } from 'react-bootstrap';
+import { Button, FormControl, Grid, FormGroup, Checkbox, ControlLabel, Jumbotron, Row, Col, Modal, ProgressBar } from 'react-bootstrap';
 //const contractAddress='0x69De4ADbb566c1c68e8dB1274229adA4A3D9f8A8';
 const blockChainView='https://testnet.etherscan.io/address/';
 const selection=[
@@ -14,7 +14,7 @@ const selection=[
 //const url='ws://'+window.location.hostname+':'+port; 
 const formatAttribute=(attributeType, attributeValue)=>{
   var obj={};
-  obj[this.state.attributeType]=this.state.attributeValue;
+  obj[attributeType]=attributeValue;
   return obj;
 }
 const decrypt=(password, text)=>{ //attributeText
@@ -181,6 +181,7 @@ class App extends Component {
       addedEncryption:true,//for entering data
       historicalData:[],
       askForPassword:false,
+      currentProgress:0,
       password:"",//for entereing data
       attributeValue:"", //for entering data
       attributeType:"" //for entering ata
@@ -194,9 +195,7 @@ class App extends Component {
     })
     ipcRenderer.on('sync', (event, arg) => {
       console.log(arg);
-      this.setState({
-        isSyncing:arg==='syncing'
-      })
+      this.setState(arg);
     })
     ipcRenderer.on('cost', (event, arg) => {
       console.log(arg);
@@ -270,8 +269,8 @@ class App extends Component {
       });
   }
   onPassword=()=>{
-    const attVal=CryptoJS.AES.encrypt(JSON.stringify(formatAttribute(this.state.attributeType,this.state.attributeValue)), password).toString();
-    this.submitAttribute({addedEncryption:attVal}, attVal);
+    const attVal=Object.assign(formatAttribute(this.state.attributeType,CryptoJS.AES.encrypt(this.state.attributeValue, this.state.password)), {addedEncryption:true});
+    this.submitAttribute(attVal, attVal.attributeType);
     this.setState({
       askForPassword:false,
       password:""
@@ -290,7 +289,7 @@ class App extends Component {
   }
   submitAttribute=(formattedAttribute, attVal)=>{
     if(this.state.moneyInAccount>this.state.cost){
-      ipcRenderer.send('addAttribute', JSON.stringify(formattedAttribute))
+      ipcRenderer.send('addAttribute', formattedAttribute)
       this.setState({
         historicalData:this.state.historicalData.concat([{timestamp:new Date(), attributeText:attVal, attributeType:this.state.attributeType, isEncrypted:this.state.addedEncryption}])
       },()=>{
@@ -341,7 +340,7 @@ class App extends Component {
           <ErrorModal 
             showError={this.state.showError} 
             hideError={this.hideError}/>
-          {this.state.isSyncing?<h1>Loading, please wait</h1>:
+          {this.state.isSyncing?<ProgressBar now={this.state.currentProgress>0?this.state.currentProgress:100} active={this.state.currentProgress>0?false:true}/>:
             <Grid>
               <Row className="show-grid">
                   
