@@ -68,7 +68,7 @@ class TblRow extends Component {/*=({attributeText, isEncrypted, onDecrypt, time
       password:"",
       wrongPassword:decryptedValue?false:true,
       attributeText:decryptedValue,
-      isEncrypted:decryptedValue?true:false,
+      isEncrypted:decryptedValue?false:true,
       showPasswordModal:false
     }, ()=>{
       setTimeout(()=>{this.setState({wrongPassword:false})}, 3000)
@@ -147,7 +147,7 @@ const PasswordModal=({onPassword, setPassword, hidePasswordModal, askForPassword
           <FormGroup>
               <ControlLabel>Password</ControlLabel>
               <FormControl autoFocus={true} 
-                  type="password" onChange={(e)=>{setPassword(e.state.value);}}/>
+                  type="password" onChange={(e)=>{setPassword(e.target.value);}}/>
           </FormGroup>
           <Button bsStyle="primary" onClick={onPassword}>Submit</Button>
       </form>
@@ -157,7 +157,7 @@ const PasswordModal=({onPassword, setPassword, hidePasswordModal, askForPassword
 const CustomJumbo=({showModal, account, moneyInAccount})=>
 <Jumbotron>
     <Grid>
-        <h1>DPets</h1>
+        <h1>SkyPet</h1>
         <p>Input and access animal records: decentralized, immutable, and secure.  <a  onClick={showModal}>Learn More!</a></p>
         Account: {account} <br></br> Balance: {moneyInAccount} <br></br>   {moneyInAccount==0?"Ether required!  Send the account some Ether to continue":null}.
     </Grid>
@@ -187,6 +187,7 @@ class App extends Component {
     };
     ipcRenderer.send('startEthereum', 'ping')
     ipcRenderer.on('accounts', (event, arg) => {
+      console.log(arg);
       this.setState({
         account:arg
       });
@@ -198,11 +199,13 @@ class App extends Component {
       })
     })
     ipcRenderer.on('cost', (event, arg) => {
+      console.log(arg);
       this.setState({
         cost:arg
       });
     })
     ipcRenderer.on('petId', (event, arg) => {
+      console.log(arg);
       this.setState({
         petId:arg
       });
@@ -213,11 +216,13 @@ class App extends Component {
       });
     })
     ipcRenderer.on('moneyInAccount', (event, arg) => {
+      console.log(arg);
       this.setState({
         moneyInAccount:arg
       });
     })
     ipcRenderer.on('error', (event, arg) => {
+      console.log(arg);
       this.setState({
         showError:arg
       });
@@ -230,17 +235,18 @@ class App extends Component {
   }
   retrievedData=(arg)=>{
     const owner=arg.find((val)=>{
+      console.log(val);
       return selection[val.attributeType]==='Owner'
-    }).attributeText;
+    });
     const name=arg.find((val)=>{
       return selection[val.attributeType]==='Name'
-    }).attributeText;
+    });
     this.setState({
       successSearch:arg[0]?true:false,
       showNew:arg[0]?false:true,
       historicalData:arg,
-      name:name,
-      owner:owner
+      name:name?name.attributeText:"",
+      owner:owner?owner.attributeText:""
     });
   }
   onAttributeValue=(event)=>{

@@ -17,13 +17,16 @@ const testing=true;*/
 
 
 
-ipcMain.on('addAttribute', (event, arg) => {
-  console.log(arg)  // prints "ping"
-  //addAttribute(arg);
-  //event.sender.send('asynchronous-reply', 'pong')
-})
+
 ipcMain.on('startEthereum', (event, arg)=>{
-  getEthereumStart(event);
+  getEthereumStart(event, (contract)=>{
+    console.log("got to line 23 in main.js")
+    ipcMain.on('addAttribute', (event, arg) => {
+      console.log(arg)  // prints "ping"
+      //addAttribute(arg);
+      //event.sender.send('asynchronous-reply', 'pong')
+    })
+  });
 })
 
 if (process.env.NODE_ENV === 'production') {

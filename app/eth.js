@@ -2,7 +2,7 @@ const Web3 = require('web3');
 const os=require('os');
 const spawn = require('child_process').spawn;
 const uuid = require('node-uuid');
-const web3=new Web3();
+
 const exec = require( 'child_process' ).exec;
 var CryptoJS = require("crypto-js");
 const url = require('url');
@@ -13,92 +13,104 @@ const gethLocations={
   production:gethPath,
   testing:gethPath+'testnet/'
 };
-const contractAddress='0x72c1bba9cabab4040c285159c8ea98fd36372858';
+//var contract;
+var contractAddress='0x72c1bba9cabab4040c285159c8ea98fd36372858'; //please chnage this back to const
 const passwordFileName='pswd.txt';
 const testing=true;
 
 const parseResults=(result)=>{ 
-    //result can be in the following two formats:
-    //{addedEncryption:"encryptedjsonstring""}
-    //"unencryptedjsonstring""
-    try{ //should always work if encrypted.  If not, tough luck.  Its the person who entered the data's fault
+    //result is an object.  if data is encrypted, MUST have an "addedEncryption" key.
+    try{ 
         const parsedResult=JSON.parse(result);
-        console.log(parsedResult);
+        return Object.keys(parsedResult).filter((val)=>{
+            return val!=='addedEncryption';
+        }).reduce((cumulator, key, index)=>{
+            return {
+                attributeText:index>0?cumulator.attributeText+', '+parsedResult[key]:parsedResult[key],
+                attributeType:index>0?cumulator.attributeType+', '+key:key,
+                isEncrypted:parsedResult.addedEncryption?true:false
+            }  
+        }, {attributeType:'', attributeText:'', isEncrypted:false})
     }catch(e){
         console.log(e);
-        return {attrType:"string", attrValue:result};
+        return {attributeType:"generic", attributeText:result, isEncrypted:false};
     }
-    return parsedResult.addedEncryption?{attrType:'generic', attrValue:parsedResult.addedEncryption, isEncrypted:true}:
-    Object.keys(parsedResult).reduce((cumulator, key)=>{
-        return {
-            attrValue:cumulator.attrValue+', '+parsedResult[key],
-            attrType:cumulator.attrType+', '+key,
-            isEncrypted:false
-        }        
-    }, {attrType:'', attrValue:'', isEncrypted:false});
 }
 const getAttributes=(contract, hashId, unHashedId, event)=>{
-    const maxIndex=contract.getNumberOfAttributes(hashId).c[0];
-    const searchResults=Array(maxIndex).fill(0).map((val, index)=>{
-        const attrVal=contract.getAttribute(hashId, index);
-        const parsedResult=CryptoJS.AES.decrypt(attrVal[1], unHashedId).toString(CryptoJS.enc.Utf8);
-        return Object.assign(parseResults(parsedResults), {timestamp:new Date(attrVal[0].c[0]*1000)});
-        //isEncrypted=false;
+    contract.getNumberOfAttributes(hashId, (err, result)=>{
+        var maxIndex=result.c[0];
+        var searchResults=Array(maxIndex).fill(0).map((val, index)=>{
+            return new Promise((resolve, reject)=>{
+                contract.getAttribute(hashId, index, (err, result)=>{
+                    const parsedResult=CryptoJS.AES.decrypt(result[1], unHashedId).toString(CryptoJS.enc.Utf8);
+                    resolve(Object.assign(parseResults(parsedResult), {timestamp:new Date(result[0].c[0]*1000)}));
+                });
+            }).then((value)=>{
+                return value;
+            })
+        });
+        Promise.all(searchResults)
+        .then(results => {
+            event.sender.send('retrievedData',results);
+        })
+        .catch(e => {
+            console.error(e);
+        });
     });
-    //results={retrievedData:searchResults};
-    event.sender.send('retrievedData',JSON.stringify(searchResults));
-    //wss.broadcast(JSON.stringify(results));
 }
 
-export const addAttribute=(message, hashId, unHashedId, event)=>{
-    if(contract.costToAdd().greaterThan(web3.eth.getBalance(web3.eth.defaultAccount))){
-        event.sender.send('error',"Not enough Ether!");
-       // wss.broadcast(JSON.stringify({error:"Not enough Ether!"}));
-        return;
-    }
-    contract.addAttribute.sendTransaction(hashId, CryptoJS.AES.encrypt(message, unHashedId).toString(),
-    {value:contract.costToAdd(), gas:3000000}, (err, results)=>{
-        if(err){
-            console.log(err);
-            //console.log(results);
-        }
-        else{
-            console.log(results);
-        }
-    });
-    contract.attributeAdded({_petid:hashId}, (error, result)=>{
-        if(error){
-            console.log(error);
-            return;
-        }
-        console.log(result);
-        getAttributes(contract, hashId, unHashedId, event);
-        event.sender.send('moneyInAccount',JSON.stringify(web3.fromWei(web3.eth.getBalance(web3.eth.defaultAccount))))
-    });
+export const addAttribute=(contract, message, hashId, unHashedId, event)=>{
+    contract.costToAdd((err1, cost)=>{
+        web3.eth.getBalance(web3.eth.defaultAccount, (err2, balance)=>{
+            if(cost.greaterThan(balance)){
+                event.sender.send('error',"Not enough Ether!");
+                return;
+            }
+            contract.addAttribute.sendTransaction(hashId, CryptoJS.AES.encrypt(message, unHashedId).toString(),
+            {value:contract.costToAdd(), gas:3000000}, (err, results)=>{
+                if(err){
+                    console.log(err);
+                }
+                else{
+                    console.log(results);
+                }
+            });
+            contract.attributeAdded({_petid:hashId}, (error, result)=>{
+                if(error){
+                    console.log(error);
+                    return;
+                }
+                console.log(result);
+                getAttributes(contract, hashId, unHashedId, event);
+                web3.eth.getBalance(web3.eth.defaultAccount, (err, balance)=>{ 
+                    event.sender.send('moneyInAccount', web3.fromWei(balance).toString());
+                });
+            });
+        })
+    })
 }
-function runWeb3(event, cb){
-    web3.setProvider(new web3.providers.HttpProvider('http://localhost:8545'));
+function runWeb3(event, web3, cb){
     var abi =[{"constant":false,"inputs":[],"name":"kill","outputs":[],"payable":false,"type":"function"},{"constant":false,"inputs":[],"name":"getRevenue","outputs":[],"payable":true,"type":"function"},{"constant":true,"inputs":[{"name":"_petid","type":"bytes32"},{"name":"index","type":"uint256"}],"name":"getAttribute","outputs":[{"name":"","type":"uint256"},{"name":"","type":"string"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"owner","outputs":[{"name":"","type":"address"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"costToAdd","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function"},{"constant":true,"inputs":[{"name":"_petid","type":"bytes32"}],"name":"getNumberOfAttributes","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function"},{"constant":false,"inputs":[{"name":"_petid","type":"bytes32"},{"name":"_attribute","type":"string"}],"name":"addAttribute","outputs":[],"payable":true,"type":"function"},{"inputs":[],"type":"constructor"},{"payable":false,"type":"fallback"},{"anonymous":false,"inputs":[{"indexed":false,"name":"_petid","type":"bytes32"},{"indexed":false,"name":"_attribute","type":"string"}],"name":"attributeAdded","type":"event"}];
-    console.log(web3.eth.accounts[0]);
-    if(web3.eth.accounts.length>0){
-        web3.eth.defaultAccount=web3.eth.accounts[0];
-    }
-    contract=web3.eth.contract(abi).at(contractAddress);
-    cb?cb(contract):console.log("Contract Initiated");
-    console.log(contract);
+    console.log("got here at 83")
+    web3.eth.getAccounts((err, result)=>{
+        web3.eth.defaultAccount=result[0];
+        var contract=web3.eth.contract(abi).at(contractAddress);
+        event.sender.send('accounts', web3.eth.defaultAccount);
+        event.sender.send('constractAddress', contractAddress);     
 
-    event.sender.send('accounts', JSON.stringify(web3.eth.defaultAccount));
-    event.sender.send('constractAddress', JSON.stringify(contractAddress));
-    event.sender.send('cost', web3.fromWei(contract.costToAdd()).toString());
-    event.sender.send('moneyInAccount', web3.fromWei(web3.eth.getBalance(web3.eth.defaultAccount)));
-    
-    
-    
+        web3.eth.getBalance(web3.eth.defaultAccount, (err, balance)=>{
+            event.sender.send('moneyInAccount', web3.fromWei(balance).toString());
+        });
+        contract.costToAdd((err, result)=>{
+            event.sender.send('cost',web3.fromWei(result).toString());
+        })
+        return cb?cb(contract):console.log("Contract Initiated");        
+    });
 }
 const getGethPath=(fileName, isTest)=>{
   return (isTest?gethLocations.testing:gethLocations.production)+fileName;
 }
-const runGeth=(password, event, ipcPath, cb)=>{
+const runGeth=(password, event, ipcPath, web3, cb)=>{
   exec('./geth --exec "personal.unlockAccount(eth.accounts[0], \''+password+'\', 0)" attach ipc:'+ipcPath, (err, stdout, stderr)=>{
       stdout=stdout.trim();
       if(err||(stdout!=="true")){
@@ -106,11 +118,11 @@ const runGeth=(password, event, ipcPath, cb)=>{
       }
       else{
           console.log("open");
-          runWeb3(event, cb);
+          runWeb3(event, web3, cb);
       }
   });
 }
-const checkPswd=(datadir, event,ipcPath, cb)=>{
+const checkPswd=(datadir, event,ipcPath, web3, cb)=>{
   const pswd=path.join(__dirname, passwordFileName);
   exec('./geth '+datadir+'  account list', (err, stdout, stderr)=>{
         if(err||!stdout){
@@ -123,7 +135,7 @@ const checkPswd=(datadir, event,ipcPath, cb)=>{
                     if(err){
                         return console.log(err);
                     }
-                    runGeth(value,event, ipcPath, cb);
+                    runGeth(value,event, ipcPath, web3, cb);
                 });
             });
         }
@@ -132,20 +144,38 @@ const checkPswd=(datadir, event,ipcPath, cb)=>{
                 if(err){
                     return console.log(err);
                 }
-                runGeth(data, event, ipcPath,  cb);
+                runGeth(data, event, ipcPath, web3, cb);
             });
         }
         
     });
 }
-const getHeaders=(data)=>{
+/*const getHeaders=(data)=>{
     const headerIndex=data.indexOf("headers");
     const numHeaders=data.substring(headerIndex-4, headerIndex).trim();
     //console.log(numHeaders);
     return numHeaders?parseFloat(numHeaders):100;
 
+}*/
+const getSync=(web3,event, cb)=>{
+    web3.eth.isSyncing((error, sync)=>{
+        console.log(error);
+        if(sync===true){
+            //is done, ready to work
+            console.log("syncing started");
+        }
+        else if(sync){
+            event.sender.send('sync', 'syncing');
+            console.log(sync.startingBlock+", "+sync.currentBlock+", "+sync.highestBlock);
+        }
+        else{
+            event.sender.send('sync', 'complete');
+            console.log("sync complete");
+            cb();
+        }
+    })
 }
-export const getEthereumStart=(event)=>{
+export const getEthereumStart=(event, callback)=>{
     const ipcPath=getGethPath('geth.ipc', testing);
     const ethPath=getGethPath("", false);
     const datadir='--datadir '+getGethPath('geth/lightchaindata', testing);
@@ -157,39 +187,27 @@ export const getEthereumStart=(event)=>{
     });
     
     geth.stderr.on('data', (data) => {
-        console.log(getHeaders(data+""));
-        if(getHeaders(data+"")>1&&isFirst){
-            event.sender.send('sync', 'syncing');
-        }
-        else{
-            event.sender.send('sync', 'complete');
-            if(testing){
-                var unHashedId="MyId4";
-                checkPswd(datadir, event, ipcPath, (contract)=>{
-                    hashId=web3.sha3(unHashedId);
-                    event.sender.send('petId', hashId);
-                    getAttributes(contract, hashId, unHashedId);
-                });
-            }
-            else{
-                checkPswd(datadir, event, ipcPath);
-            }
+        if(isFirst){
+            var web3=new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+            getSync(web3, event, ()=>{
+                if(testing){
+                    var unHashedId="MyId4";
+                    checkPswd(datadir, event, ipcPath, web3, (contract)=>{
+                        const hashId=web3.sha3(unHashedId);
+                        event.sender.send('petId', hashId);
+                        getAttributes(contract, hashId, unHashedId, event);
+                        callback(contract);
+                    });
+                }
+                else{
+                    checkPswd(datadir, event, ipcPath, web3, (contract)=>{
+                        callback(contract);
+                    });
+                }
+            })
+            
             isFirst=false;
         }
-        /*if(isFirst){
-            if(testing){
-                var unHashedId="MyId4";
-                checkPswd(datadir, event, ipcPath, (contract)=>{
-                    hashId=web3.sha3(unHashedId);
-                    event.sender.send('petId', hashId);
-                    getAttributes(contract, hashId, unHashedId);
-                });
-            }
-            else{
-                checkPswd(datadir, event, ipcPath);
-            }
-            isFirst=false;
-        }*/
     });
 
     geth.on('close', (code) => {
