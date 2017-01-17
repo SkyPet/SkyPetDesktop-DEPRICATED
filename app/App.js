@@ -1,7 +1,9 @@
 import React,  {  Component } from 'react';
 const CryptoJS = require("crypto-js");
 const {ipcRenderer} = require('electron');
-import { Button, FormControl, Grid, FormGroup, Checkbox, ControlLabel, Jumbotron, Row, Col, Modal, ProgressBar } from 'react-bootstrap';
+import { Button, FormControl, Grid, FormGroup, Checkbox, ControlLabel, Jumbotron, Row, Col, Modal, ProgressBar, FieldGroup} from 'react-bootstrap';
+/*import {SocialLogin} from 'react-social-login';*/
+
 //const contractAddress='0x69De4ADbb566c1c68e8dB1274229adA4A3D9f8A8';
 const blockChainView='https://testnet.etherscan.io/address/';
 const selection=[
@@ -25,26 +27,7 @@ const decrypt=(password, text)=>{ //attributeText
     catch(e){
       console.log(e);
     }
-    return decrypted;//{text:decrypted, isEncrypted:decrypted?false:true}
-    /*if(decrypted){
-      this.setState({
-          attributeText:decrypted,
-          isEncrypted:false
-      });
-    }
-    else{
-      this.setState({
-        wrongPassword:true
-      },
-        ()=>{
-          setTimeout(()=>{
-            this.setState({
-              wrongPassword:false
-            });
-          }, 2000);
-        }
-      );
-    }*/
+    return decrypted;
 }
 class TblRow extends Component {/*=({attributeText, isEncrypted, onDecrypt, timestamp, label, wrongPassword})=>{*/
   constructor(props){
@@ -163,6 +146,18 @@ const CustomJumbo=({showModal, account, moneyInAccount})=>
     </Grid>
 </Jumbotron>
 
+const SubmitPassword=({onCreate, label})=>
+<form onSubmit={(event)=>{event.preventDefault();onCreate(event);}}>
+  <FieldGroup
+      id="formControlsPassword"
+      label={label}
+      type="password"
+    />
+    <Button type='submit'>Submit</Button>
+</form>
+
+
+
 class App extends Component {
   constructor(props){
     super(props); 
@@ -173,6 +168,8 @@ class App extends Component {
       showNew:false,
       account:"",
       isSyncing:true,
+      accountCreated:false,
+      gethPasswordEntered:false,
       successSearch:false,
       cost:0,
       moneyInAccount:0,
@@ -184,7 +181,7 @@ class App extends Component {
       currentProgress:0,
       password:"",//for entereing data
       attributeValue:"", //for entering data
-      attributeType:"" //for entering ata
+      attributeType:0 //for entering ata
     };
     ipcRenderer.send('startEthereum', 'ping')
     ipcRenderer.on('accounts', (event, arg) => {
@@ -254,6 +251,7 @@ class App extends Component {
       });      
   }
   onAttributeType=(event)=>{
+    //console.log(event.target.value);
       this.setState({
           attributeType:event.target.value
       });      
@@ -269,7 +267,7 @@ class App extends Component {
       });
   }
   onPassword=()=>{
-    const attVal=Object.assign(formatAttribute(this.state.attributeType,CryptoJS.AES.encrypt(this.state.attributeValue, this.state.password)), {addedEncryption:true});
+    const attVal=Object.assign(formatAttribute(this.state.attributeType,CryptoJS.AES.encrypt(this.state.attributeValue, this.state.password).toString()), {addedEncryption:true});
     this.submitAttribute(attVal, attVal.attributeType);
     this.setState({
       askForPassword:false,
@@ -321,8 +319,16 @@ class App extends Component {
       showError:""
     });
   }
+  submitPassword=(event)=>{
+    console.log(event);
+    
+  }
+  createAccount=(event)=>{
+    console.log(event);
+  }
   render(){
       return(
+        
         <div>
           <CustomJumbo 
             showModal={this.showModal} 
@@ -340,7 +346,7 @@ class App extends Component {
           <ErrorModal 
             showError={this.state.showError} 
             hideError={this.hideError}/>
-          {this.state.isSyncing?<ProgressBar now={this.state.currentProgress>0?this.state.currentProgress:100} active={this.state.currentProgress>0?false:true}/>:
+          {(!this.state.accountCreated)?<SubmitPassword label="Enter password to generate account.  Don't forget this password!" onCreate={this.createAccount}/>:(!this.state.gethPasswordEntered)?<SubmitPassword label="Enter Geth account password" onCreate={this.submitPassword}/>:this.state.isSyncing?<ProgressBar now={this.state.currentProgress>0?this.state.currentProgress:100} active={this.state.currentProgress>0?false:true}/>:
             <Grid>
               <Row className="show-grid">
                   

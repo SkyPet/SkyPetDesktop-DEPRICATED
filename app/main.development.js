@@ -8,6 +8,7 @@ let mainWindow = null;
 ipcMain.on('startEthereum', (event, arg)=>{
   getEthereumStart(event, (contract, hashId, unHashedId, web3)=>{
     ipcMain.on('addAttribute', (event, arg) => {
+      console.log(`At line 11`);
       console.log(arg);
       addAttribute(contract, JSON.stringify(arg), hashId, unHashedId, web3, event);
     })
