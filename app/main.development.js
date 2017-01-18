@@ -1,18 +1,21 @@
 import { app, BrowserWindow, Menu, shell, ipcMain} from 'electron';
-import {getEthereumStart, addAttribute, getIds} from './eth';
+import {getEthereumStart, addAttribute, getIds, runGeth} from './eth';
 
 let menu;
 let template;
 let mainWindow = null;
 
 ipcMain.on('startEthereum', (event, arg)=>{
-  getEthereumStart(event, (contract, hashId, unHashedId, web3)=>{
+  getEthereumStart(event);
+})
+ipcMain.on('password', (event, arg)=>{
+  runGeth(arg, event, (contract)=>{
+    const Ids=getIds();
+    event.sender.send('petId', Ids.hashId);
     ipcMain.on('addAttribute', (event, arg) => {
-      console.log(`At line 11`);
-      console.log(arg);
-      addAttribute(contract, JSON.stringify(arg), hashId, unHashedId, web3, event);
-    })
-  });
+      getAttributes(contract, JSON.stringify(arg),Ids.hashId, Ids.unHashedId, event);
+    });
+  })
 })
 
 if (process.env.NODE_ENV === 'production') {

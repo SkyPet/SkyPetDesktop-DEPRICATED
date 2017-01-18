@@ -117,7 +117,7 @@ function runWeb3(event, cb){
     });
 }
 
-const runGeth=(password, event,  cb)=>{
+export const runGeth=(password, event,  cb)=>{
   exec(gethCommand+' --exec "personal.unlockAccount(eth.accounts[0], \''+password+'\', 0)" attach ipc:'+ipcPath, (err, stdout, stderr)=>{
       stdout=stdout.trim();
       if(err||(stdout!=="true")){
@@ -164,6 +164,7 @@ const checkPswd=(event)=>{
         }*/
         else{
             config.set('hasAccount', true);
+            event.sender.send('hasAccount', "p");
             /*config.has('password', )
             fs.readFile(pswd, 'utf8', (err, data)=>{
                 if(err){
@@ -207,7 +208,7 @@ export const getIds=()=>{
         hashId:web3.sha3("MyId4")
     }
 }
-export const getEthereumStart=(event, callback)=>{
+export const getEthereumStart=(event)=>{
     
     const geth = spawn(gethCommand, ['--rpc', '--testnet', '--datadir='+getGethPath("", false), '--light', '--ipcpath='+ipcPath]);
 
@@ -221,20 +222,14 @@ export const getEthereumStart=(event, callback)=>{
             checkPswd(event);
             web3.setProvider(new web3.providers.HttpProvider("http://localhost:8545"));
             getSync( event, ()=>{
-                if(testing){
+                checkPswd( event);
+                /*if(testing){
                     const Ids=getIds();
-                    checkPswd(event,  (contract)=>{
-                        //const hashId=web3.sha3(unHashedId);
-                        event.sender.send('petId', Ids.hashId);
-                        getAttributes(contract, Ids.hashId, Ids.unHashedId, event);
-                        callback(contract, Ids.hashId, Ids.unHashedId, web3);
-                    });
+                    checkPswd(event);
                 }
                 else{
-                    checkPswd( event,   (contract)=>{
-                        callback(contract, Ids.hashId, Ids.unHashedId, web3);
-                    });
-                }
+                    checkPswd( event);
+                }*/
             })
             
             isFirst=false;

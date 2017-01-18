@@ -1,7 +1,29 @@
 import React,  {  Component } from 'react';
+import injectTapEventPlugin from 'react-tap-event-plugin';
+// Needed for onTouchTap
+// http://stackoverflow.com/a/34015469/988941
+injectTapEventPlugin();
 const CryptoJS = require("crypto-js");
 const {ipcRenderer} = require('electron');
-import { Button, FormControl, Grid, FormGroup, Checkbox, ControlLabel, Jumbotron, Row, Col, Modal, ProgressBar, FieldGroup} from 'react-bootstrap';
+import Dialog from 'material-ui/Dialog';
+import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
+import getMuiTheme from 'material-ui/styles/getMuiTheme';
+import FlatButton from 'material-ui/FlatButton';
+import RaisedButton from 'material-ui/RaisedButton';
+import lightBaseTheme from 'material-ui/styles/baseThemes/lightBaseTheme';
+import {Toolbar, ToolbarGroup, ToolbarSeparator, ToolbarTitle} from 'material-ui/Toolbar';
+import TextField from 'material-ui/TextField';
+import Checkbox from 'material-ui/Checkbox';
+import {Table, TableBody, TableHeader, TableHeaderColumn, TableRow, TableRowColumn} from 'material-ui/Table';
+import SelectField from 'material-ui/SelectField';
+import MenuItem from 'material-ui/MenuItem';
+import CircularProgress from 'material-ui/CircularProgress';
+
+import {
+  Step,
+  Stepper,
+  StepLabel,
+} from 'material-ui/Stepper';
 /*import {SocialLogin} from 'react-social-login';*/
 
 //const contractAddress='0x69De4ADbb566c1c68e8dB1274229adA4A3D9f8A8';
@@ -71,90 +93,155 @@ class TblRow extends Component {/*=({attributeText, isEncrypted, onDecrypt, time
     return(
       <div>
   <PasswordModal onPassword={this.onPasswordSubmit} setPassword={this.setPassword} hidePasswordModal={this.hideModal} askForPassword={this.state.showPasswordModal}/>
-      <Row>             
-        <Col xsHidden sm={7} >{this.props.timestamp}</Col>
-        <Col xs={6} sm={2}>{this.props.label}</Col>
-        <Col xs={6} sm={3} >{this.state.isEncrypted?this.state.wrongPassword?<Button bsStyle="warning" onClick={this.onDecrypt}>Wrong Password</Button>:
-            <Button disabled={!this.state.isEncrypted} onClick={this.onDecrypt}>Decrypt</Button>:
+      <TableRow>             
+        <TableRowColumn>{this.props.timestamp}</TableRowColumn>
+        <TableRowColumn> >{this.props.label}</TableRowColumn>
+        <TableRowColumn>{this.state.isEncrypted?this.state.wrongPassword?<FlatButton label="Wrong Password" onClick={this.onDecrypt}/>:
+            <FlatButton disabled={!this.state.isEncrypted} label="Decrypt" onClick={this.onDecrypt}/>:
           this.state.attributeText}
-        </Col>
-    </Row>
+        </TableRowColumn>
+    </TableRow>
     </div>
     );
   }
 }
 
 const AboutModal=({hideModal, show, contractAddress})=>
-<Modal
-    show={show}
-    onHide={hideModal}
-    dialogClassName="custom-modal"
+<Dialog
+  title="About"
+  actions={<FlatButton
+        label="Ok"
+        primary={true}
+        onClick={hideModal}
+      />}
+  modal={false}
+  open={show}
+  onRequestClose={hideModal}
 >
-<Modal.Header closeButton>
-    <Modal.Title id="contained-modal-title-lg">About</Modal.Title>
-</Modal.Header>
-  <Modal.Body>
-      <h4>How it works</h4>
+  <h4>How it works</h4>
       <p>Every pet should have a microchip which uniquely identifies itself.  A scanner can read the microchip and an ID is read.  For example, the ID may be 123.  This ID is then hashed and placed on the Ethereum blockchain.  The unhashed ID serves as a key to encrypt the name and address of the owner: hence the pet itself is needed in order to know who the owner and the address are (they are not public without knowing the ID of the pet).  This is not secure in the same sense that a human medical or banking record is secure; but as addresses are essentially public this is not a major issue.  If the medical records for the pet are not desired to be "public" then they can be encrypted using a key not associated with the microchip (eg, a password provided by the owners). 
       
       The contract that governs this is available at {contractAddress} on the blockchain.  See it <a href={blockChainView+contractAddress} target="_blank">here.</a> </p>
-  </Modal.Body>
-  <Modal.Footer>
-      <Button onClick={hideModal}>Close</Button>
-  </Modal.Footer>
-</Modal>
+</Dialog>
+
 const ErrorModal=({showError, hideError})=>
-<Modal
-    show={showError?true:false}
-    onHide={hideError}
-    dialogClassName="custom-modal"
+<Dialog
+  title="Error!"
+  actions={<FlatButton
+        label="Ok"
+        primary={true}
+        onClick={hideError}
+      />}
+  modal={false}
+  open={showError?true:false}
+  onRequestClose={hideError}
 >
-<Modal.Header closeButton>
-    <Modal.Title id="contained-modal-title-lg">Error!</Modal.Title>
-</Modal.Header>
-  <Modal.Body>
-      {showError}
-  </Modal.Body>
-  <Modal.Footer>
-      <Button onClick={hideError}>Close</Button>
-  </Modal.Footer>
-</Modal>
+ {showError}
+</Dialog>
+
+
 const PasswordModal=({onPassword, setPassword, hidePasswordModal, askForPassword})=>
-<Modal
-    show={askForPassword}
-    dialogClassName="custom-modal"
-    onHide={hidePasswordModal}
+<Dialog
+  title="Enter Password"
+  modal={true}
+  open={askForPassword}
+  onRequestClose={hidePasswordModal}
 >
-  <Modal.Body>
-      <form onSubmit={(e)=>{e.preventDefault();onPassword();}}>
-          <FormGroup>
-              <ControlLabel>Password</ControlLabel>
-              <FormControl autoFocus={true} 
-                  type="password" onChange={(e)=>{setPassword(e.target.value);}}/>
-          </FormGroup>
-          <Button bsStyle="primary" onClick={onPassword}>Submit</Button>
-      </form>
-  </Modal.Body>
+  <SubmitPassword onCreate={onPassword} onType={setPassword}/>
+</Dialog>
 
-</Modal>
-const CustomJumbo=({showModal, account, moneyInAccount})=>
-<Jumbotron>
-    <Grid>
-        <h1>SkyPet</h1>
-        <p>Input and access animal records: decentralized, immutable, and secure.  <a  onClick={showModal}>Learn More!</a></p>
-        Account: {account} <br></br> Balance: {moneyInAccount} <br></br>   {moneyInAccount==0?"Ether required!  Send the account some Ether to continue":null}.
-    </Grid>
-</Jumbotron>
+const CustomToolBar=({showModal, account, moneyInAccount})=>
+ <Toolbar>
+  <ToolbarGroup firstChild={true}>
+   <ToolbarTitle text="SkyPet" />
+  </ToolbarGroup>
+  <ToolbarGroup>
+    <ToolbarTitle text="Account:" />
+     {account}
+     <ToolbarSeparator />
+      {moneyInAccount==0?"Ether required!  Send the account some Ether to continue":"Balance: {moneyInAccount}" }
+  </ToolbarGroup>
+  <ToolbarGroup>
+  <RaisedButton label="Create Broadcast" primary={true} onClick={showModal}/>
+  </ToolbarGroup>
+</Toolbar>
 
-const SubmitPassword=({onCreate, label})=>
-<form onSubmit={(event)=>{event.preventDefault();onCreate(event);}}>
-  <FieldGroup
-      id="formControlsPassword"
-      label={label}
-      type="password"
-    />
-    <Button type='submit'>Submit</Button>
+const SubmitPassword=({onCreate, onType})=>
+<form onSubmit={(e)=>{e.preventDefault();onCreate();}}>
+    <TextField floatingLabelText="Password" type="password" onChange={(e)=>{onType(e.target.value);}}/>
+    <FlatButton label="Submit" primary={true} />
 </form>
+class AccountAndLogin extends Component{
+  constructor(props){
+    super(props);
+    this.state = {
+      finished: false,
+      stepIndex: 0,
+      hasAccount:this.props.hasAccount,
+      hasPassword:false,
+      password:""
+    };
+  }
+  
+  handleSubmitPassword=()=>{
+    ipcRenderer.send('password', this.state.password);
+    this.setState({
+      hasPassword:true,
+      hasAccount:true
+    })
+    this.handleNext();
+  }
+  handleTypePassword=(value)=>{
+    this.setState({
+      password:value
+    });
+  }
+  handleNext = () => {
+    this.setState({
+      stepIndex: this.state.stepIndex + 1,
+      finished: this.state.stepIndex >= 1,
+    });
+  };
+  handlePrev = () => {
+    if (this.state.stepIndex > 0) {
+      this.setState({stepIndex: this.state.stepIndex - 1});
+    }
+  };
+  getStepContent(stepIndex) {
+    switch (stepIndex) {
+      case 0:
+        return <div><p>{this.state.hasAccount?"Password to login to account":"Enter a password to generate your account.  Don't forget this password!"}</p>
+        <SubmitPassword onType={this.handleTypePassword} onCreate={this.handleSubmitPassword}/></div>;
+      case 1:
+        return <div>{this.props.children}</div>;
+      default:
+        return 'You\'re a long way from home sonny jim!';
+    }
+  }
+  render() {
+   // const {finished, stepIndex} = this.state;
+    const contentStyle = {margin: '0 16px'};
+
+    return (
+      <div style={{width: '100%', maxWidth: 700, margin: 'auto'}}>
+        <Stepper activeStep={this.state.stepIndex}>
+          <Step>
+            <StepLabel>{this.state.hasAccount?"Login":"Create Account"}</StepLabel>
+            
+          </Step>
+          <Step>
+            <StepLabel>Enjoy SkyPet!</StepLabel>
+          </Step>
+        </Stepper>
+        <div style={contentStyle}>
+          {this.getStepContent(this.state.stepIndex)}
+          
+        </div>
+      </div>
+    );
+  }
+}
+
 
 
 
@@ -179,6 +266,7 @@ class App extends Component {
       historicalData:[],
       askForPassword:false,
       currentProgress:0,
+      hasAccount:false,
       password:"",//for entereing data
       attributeValue:"", //for entering data
       attributeType:0 //for entering ata
@@ -188,6 +276,12 @@ class App extends Component {
       console.log(arg);
       this.setState({
         account:arg
+      });
+    })
+    ipcRenderer.on('hasAccount', (event, arg) => {
+      console.log(arg);
+      this.setState({
+        hasAccount:true
       });
     })
     ipcRenderer.on('sync', (event, arg) => {
@@ -328,9 +422,9 @@ class App extends Component {
   }
   render(){
       return(
-        
-        <div>
-          <CustomJumbo 
+        <MuiThemeProvider muiTheme={getMuiTheme(lightBaseTheme)}>
+        <AccountAndLogin hasAccount={this.state.hasAccount}>
+          <CustomToolBar 
             showModal={this.showModal} 
             account={this.state.account} 
             moneyInAccount={this.state.moneyInAccount}/>
@@ -346,70 +440,55 @@ class App extends Component {
           <ErrorModal 
             showError={this.state.showError} 
             hideError={this.hideError}/>
-          {(!this.state.accountCreated)?<SubmitPassword label="Enter password to generate account.  Don't forget this password!" onCreate={this.createAccount}/>:(!this.state.gethPasswordEntered)?<SubmitPassword label="Enter Geth account password" onCreate={this.submitPassword}/>:this.state.isSyncing?<ProgressBar now={this.state.currentProgress>0?this.state.currentProgress:100} active={this.state.currentProgress>0?false:true}/>:
-            <Grid>
-              <Row className="show-grid">
-                  
-                  <Col xs={12} md={6}>
-                      {this.state.successSearch?
-                          <div size={16}>Hello {this.state.owner}, {this.state.name} is in good hands! Did something new happen in {this.state.name}'s life?  Record it on the right!  Or view current and past events below.</div>
-                      :this.state.showNew?"This is the first time your pet has been scanned!  Enter the name of the pet and owner!":null}
-                  </Col>
-                  <Col xs={12} md={6}>
+          {this.state.isSyncing?<CircularProgress size={80} thickness={5} mode={this.state.currentProgress>0?"determinate":null} value={this.state.currentProgress}/>:
+          <div>
+          <SelectField 
+            floatingLabelText="Frequency"
+            onChange={this.onAttributeType}
+          >
+            {selection.map((val, index)=>{
+                return(<MenuItem key={index} value={index} primaryText={val}/>);
+            })}
+          </SelectField>
+          <TextField
+            floatingLabelText="Value"
+            disabled={!this.state.petId}  onChange={this.onAttributeValue}
+          />               
+                     
+                
+    
+        <Checkbox disabled={!this.state.petId}  label="Add Encryption" defaultChecked={true} onCheck={this.toggleAdditionalEncryption}/>
+        <RaisedButton disabled={!this.state.petId} onClick={()=>{this.onSubmit();}} label={"Submit New Result (costs {this.state.cost} Ether)"}/>
                       
-                      <FormGroup>
-                          <ControlLabel>Type</ControlLabel>
-                          <FormControl componentClass="select" placeholder="select" disabled={!this.state.petId} onChange={this.onAttributeType}>
-                              {selection.map((val, index)=>{
-                                  return(<option key={index} value={index}>{val}</option>);
-                              })}
-                          </FormControl>
-                      </FormGroup>
-                      
-                      <FormGroup>
-                          <ControlLabel>Value</ControlLabel>
-                          <FormControl type="text" disabled={!this.state.petId}  onChange={this.onAttributeValue}/>
-                          
-                      </FormGroup>
-                      <Checkbox disabled={!this.state.petId} checked={this.state.addedEncryption} onChange={this.onAdditionalEncryption}>Additional Encryption</Checkbox>
-                      <Button bsStyle="primary" disabled={!this.state.petId} onClick={()=>{this.onSubmit();}}>Submit New Result (costs {this.state.cost} Ether)</Button>
-                      
-                  </Col>
-                    
-              </Row>
-              <div className='whiteSpace'></div>
-              <Row>
-                  {this.state.successSearch?
-                  <Col xs={12} md={6}>
-                      <Row>
-                          <Col xsHidden sm={7}>
-                              <b>TimeStamp</b>
-                          </Col>
-                          <Col xs={6} sm={2}>
-                              <b>Attribute</b>
-                          </Col>
-                          <Col xs={6} sm={3}>
-                              <b>Value</b>
-                          </Col>
-                      </Row>
-                      {this.state.historicalData.map((val, index)=>{
-                          return(
-                              <TblRow key={index} timestamp={val.timestamp.toString()} attributeText={val.attributeText}  label={selection[val.attributeType]||"Unknown"} isEncrypted={val.isEncrypted}/>
-                          );
-                      })}
+        <Table>
+            
+            <TableHeader>
+              <TableRow>
+                <TableHeaderColumn>TimeStamp</TableHeaderColumn>
+                <TableHeaderColumn>Attribute</TableHeaderColumn>
+                <TableHeaderColumn>Value</TableHeaderColumn>
+              </TableRow>
+            </TableHeader>
+            {this.state.successSearch?
+            <TableBody>
+                {this.state.historicalData.map((val, index)=>{
+                    return(
+                        <TblRow key={index} timestamp={val.timestamp.toString()} attributeText={val.attributeText}  label={selection[val.attributeType]||"Unknown"} isEncrypted={val.isEncrypted}/>
+                    );
+                })}
 
-                  </Col>
-                  :null}
-              </Row>
-          </Grid>
-          
+            </TableBody>
+            :null}
+        </Table>
+          </div>
           }
           
           <div className='whiteSpace'></div>
           <div className='whiteSpace'></div>
           <div className='whiteSpace'></div>
           <div className='whiteSpace'></div>
-          </div>
+          </AccountAndLogin>
+          </MuiThemeProvider>
       );
   }
 }
