@@ -106,17 +106,42 @@ class TblRow extends Component {/*=({attributeText, isEncrypted, onDecrypt, time
   }
 }
 
-const AboutModal=({hideModal, show, contractAddress})=>
+class AboutComponent extends Component {
+  state={
+    closed:true
+  }
+  onAbout=()=>{
+    this.setState({
+      closed:false
+    })
+  }
+  onAboutClose=()=>{
+    this.setState({
+      closed:true
+    })
+  }
+  render(){
+    console.log(this.props.contractAddress)
+    return(
+      <div>
+        <RaisedButton label="Learn More" primary={true} onClick={this.onAbout}/>
+        <AboutModal contractAddress={this.props.contractAddress} onClick={this.onAboutClose} hideModal={this.state.closed}/>
+      </div>
+    )
+  }
+  
+}
+const AboutModal=({hideModal, onClick, contractAddress})=>
 <Dialog
   title="About"
   actions={<FlatButton
         label="Ok"
         primary={true}
-        onClick={hideModal}
+        onClick={onClick}
       />}
   modal={false}
-  open={show}
-  onRequestClose={hideModal}
+  open={!hideModal}
+  onRequestClose={onClick}
 >
   <h4>How it works</h4>
       <p>Every pet should have a microchip which uniquely identifies itself.  A scanner can read the microchip and an ID is read.  For example, the ID may be 123.  This ID is then hashed and placed on the Ethereum blockchain.  The unhashed ID serves as a key to encrypt the name and address of the owner: hence the pet itself is needed in order to know who the owner and the address are (they are not public without knowing the ID of the pet).  This is not secure in the same sense that a human medical or banking record is secure; but as addresses are essentially public this is not a major issue.  If the medical records for the pet are not desired to be "public" then they can be encrypted using a key not associated with the microchip (eg, a password provided by the owners). 
@@ -124,22 +149,21 @@ const AboutModal=({hideModal, show, contractAddress})=>
       The contract that governs this is available at {contractAddress} on the blockchain.  See it <a href={blockChainView+contractAddress} target="_blank">here.</a> </p>
 </Dialog>
 
+
 const ErrorModal=({showError, hideError})=>
-<Dialog
-  title="Error!"
-  actions={<FlatButton
-        label="Ok"
-        primary={true}
-        onClick={hideError}
-      />}
-  modal={false}
-  open={showError?true:false}
-  onRequestClose={hideError}
->
- {showError}
-</Dialog>
-
-
+      <Dialog
+        title="Error!"
+        actions={<FlatButton
+              label="Ok"
+              primary={true}
+              onClick={hideError}
+            />}
+        modal={false}
+        open={showError?true:false}
+        onRequestClose={hideError}
+      >
+      {showError}
+      </Dialog>
 const PasswordModal=({onPassword, setPassword, hidePasswordModal, askForPassword})=>
 <Dialog
   title="Enter Password"
@@ -150,7 +174,7 @@ const PasswordModal=({onPassword, setPassword, hidePasswordModal, askForPassword
   <SubmitPassword onCreate={onPassword} onType={setPassword}/>
 </Dialog>
 
-const CustomToolBar=({showModal, account, moneyInAccount})=>
+const CustomToolBar=({account, moneyInAccount, contractAddress})=>
  <Toolbar>
   <ToolbarGroup firstChild={true}>
    <ToolbarTitle text="SkyPet" />
@@ -161,10 +185,9 @@ const CustomToolBar=({showModal, account, moneyInAccount})=>
      <ToolbarSeparator />
       {moneyInAccount==0?"Ether required!  Send the account some Ether to continue":"Balance: {moneyInAccount}" }
   </ToolbarGroup>
-  <ToolbarGroup>
-  <RaisedButton label="Create Broadcast" primary={true} onClick={showModal}/>
-  </ToolbarGroup>
+  <AboutComponent contractAddress={contractAddress}/>
 </Toolbar>
+
 
 const SubmitPassword=({onCreate, onType})=>
 <form onSubmit={(e)=>{e.preventDefault();onCreate();}}>
@@ -213,7 +236,7 @@ class AccountAndLogin extends Component{
         return <div><p>{this.state.hasAccount?"Password to login to account":"Enter a password to generate your account.  Don't forget this password!"}</p>
         <SubmitPassword onType={this.handleTypePassword} onCreate={this.handleSubmitPassword}/></div>;
       case 1:
-        return <div>{this.props.children}</div>;
+        return <div>Hello</div>;
       default:
         return 'You\'re a long way from home sonny jim!';
     }
@@ -423,14 +446,10 @@ class App extends Component {
   render(){
       return(
         <MuiThemeProvider muiTheme={getMuiTheme(lightBaseTheme)}>
-        <AccountAndLogin hasAccount={this.state.hasAccount}>
+        <div>
           <CustomToolBar 
-            showModal={this.showModal} 
             account={this.state.account} 
-            moneyInAccount={this.state.moneyInAccount}/>
-          <AboutModal 
-            hideModal={this.hideModal} 
-            show={this.state.show} 
+            moneyInAccount={this.state.moneyInAccount}
             contractAddress={this.state.contractAddress}/>
           <PasswordModal 
             onPassword={this.onPassword} 
@@ -487,7 +506,7 @@ class App extends Component {
           <div className='whiteSpace'></div>
           <div className='whiteSpace'></div>
           <div className='whiteSpace'></div>
-          </AccountAndLogin>
+          </div>
           </MuiThemeProvider>
       );
   }
